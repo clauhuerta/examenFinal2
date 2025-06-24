@@ -41,7 +41,7 @@
 			<scope>test</scope>
 		</dependency>
 
-		
+
 		<!-- GSON cliente -->
 		<dependency>
 			<groupId>com.google.code.gson</groupId>
