@@ -7,7 +7,7 @@ import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.Route;
-
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
 import java.net.URI;
@@ -16,11 +16,12 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.List;
 
-@Route("")   // Será accesible en http://localhost:8084/
+@Route("")   // http://localhost:8084/
 public class MainView extends VerticalLayout {
 
-    private final String apiUrl = getElement()
-            .getAttribute("api.url", "http://localhost:8083/api/usuarios");
+    // <-- Fíjate: quitamos el getElement().getAttribute(...) y ponemos la URL fija
+    private static final String API_URL = "http://localhost:8083/api/usuarios";
+
     private final Gson gson = new Gson();
     private final Grid<Usuario> grid = new Grid<>(Usuario.class, false);
 
@@ -45,17 +46,26 @@ public class MainView extends VerticalLayout {
 
     private void loadUsuarios() {
         try {
+            HttpClient client = HttpClient.newHttpClient();
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(apiUrl))
+                    .uri(URI.create(API_URL))
                     .GET()
                     .build();
 
-            HttpResponse<InputStreamReader> response = HttpClient.newHttpClient()
-                    .send(request, HttpResponse.BodyHandlers.ofInputStream())
-                    .map(is -> new InputStreamReader(is));
+            // 1) enviamos la petición y obtenemos un InputStream
+            HttpResponse<InputStream> response = client.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofInputStream()
+            );
 
+            // 2) envolvemos ese stream en un reader
+            InputStreamReader reader = new InputStreamReader(response.body());
+
+            // 3) parseamos con GSON
             Type listType = new TypeToken<List<Usuario>>() {}.getType();
-            List<Usuario> usuarios = gson.fromJson(response.body(), listType);
+            List<Usuario> usuarios = gson.fromJson(reader, listType);
+
+            // 4) inyectamos en el grid
             grid.setItems(usuarios);
 
         } catch (Exception ex) {
