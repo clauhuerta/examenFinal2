@@ -1,59 +1,66 @@
 package org.vaadin.example;
 
-import com.vaadin.flow.component.Key;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.html.Paragraph;
+import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.Route;
 
-/**
- * A sample Vaadin view class.
- * <p>
- * To implement a Vaadin view just extend any Vaadin component and use @Route
- * annotation to announce it in a URL as a Spring managed bean.
- * <p>
- * A new instance of this class is created for every new user and every browser
- * tab/window.
- * <p>
- * The main view contains a text field for getting the user name and a button
- * that shows a greeting message in a notification.
- */
-@Route
+import java.io.InputStreamReader;
+import java.lang.reflect.Type;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.List;
+
+@Route("")   // Será accesible en http://localhost:8084/
 public class MainView extends VerticalLayout {
 
-    /**
-     * Construct a new Vaadin view.
-     * <p>
-     * Build the initial UI state for the user accessing the application.
-     *
-     * @param service
-     *            The message service. Automatically injected Spring managed bean.
-     */
-    public MainView(GreetService service) {
+    private final String apiUrl = getElement()
+            .getAttribute("api.url", "http://localhost:8083/api/usuarios");
+    private final Gson gson = new Gson();
+    private final Grid<Usuario> grid = new Grid<>(Usuario.class, false);
 
-        // Use TextField for standard text input
-        TextField textField = new TextField("Your name");
-        textField.addClassName("bordered");
+    public MainView() {
+        setSizeFull();
+        configureGrid();
+        add(grid, createToolbar());
+        loadUsuarios();
+    }
 
-        // Button click listeners can be defined as lambda expressions
-        Button button = new Button("Say hello", e -> {
-            add(new Paragraph(service.greet(textField.getValue())));
-        });
+    private void configureGrid() {
+        grid.addColumn(Usuario::getNombre).setHeader("Nombre").setAutoWidth(true);
+        grid.addColumn(Usuario::getApellidos).setHeader("Apellidos").setAutoWidth(true);
+        grid.addColumn(Usuario::getEmail).setHeader("Email").setAutoWidth(true);
+        grid.setSizeFull();
+    }
 
-        // Theme variants give you predefined extra styles for components.
-        // Example: Primary button has a more prominent look.
-        button.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+    private VerticalLayout createToolbar() {
+        Button recargar = new Button("Recargar datos", e -> loadUsuarios());
+        return new VerticalLayout(recargar);
+    }
 
-        // You can specify keyboard shortcuts for buttons.
-        // Example: Pressing enter in this view clicks the Button.
-        button.addClickShortcut(Key.ENTER);
+    private void loadUsuarios() {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(apiUrl))
+                    .GET()
+                    .build();
 
-        // Use custom CSS classes to apply styling. This is defined in
-        // styles.css.
-        addClassName("centered-content");
+            HttpResponse<InputStreamReader> response = HttpClient.newHttpClient()
+                    .send(request, HttpResponse.BodyHandlers.ofInputStream())
+                    .map(is -> new InputStreamReader(is));
 
-        add(textField, button);
+            Type listType = new TypeToken<List<Usuario>>() {}.getType();
+            List<Usuario> usuarios = gson.fromJson(response.body(), listType);
+            grid.setItems(usuarios);
+
+        } catch (Exception ex) {
+            Notification.show("Error cargando usuarios: " + ex.getMessage(), 3000, Notification.Position.MIDDLE);
+            ex.printStackTrace();
+        }
     }
 }
