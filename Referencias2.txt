@@ -1,3 +1,4 @@
 docker run -p 8083:8083 chr-backend:latest
 docker run -p 8084:8084 frontch:latest
 https://github.com/clauhuerta/examenFinal2.git
+Claudia Huerta Romero 
